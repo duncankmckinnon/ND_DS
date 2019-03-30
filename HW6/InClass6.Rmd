@@ -1,0 +1,87 @@
+
+
+```{r message=FALSE, warning=FALSE}
+#bring in the data
+suppressPackageStartupMessages( {
+library(tidyverse)
+library(partykit)
+library(rpart)
+} )
+setwd("C:/Users/dunca/OneDrive/Desktop/Course Work/Intro to Data Science/Data")
+undergrad_survey <- read_csv("undergrad_survey.csv")
+glimpse(undergrad_survey)
+
+```
+```{r}
+#create training data
+n <- nrow(undergrad_survey)
+set.seed(1999)
+test_index <- sample.int(n,size=round(0.2*n))
+train_ugrad <- undergrad_survey[-test_index,]
+test_ugrad <- undergrad_survey[test_index,]
+ggplot(train_ugrad) +
+  geom_point(aes(x = Height, y = textbooks, color = gender))
+```
+
+
+```{r}
+gender_height_textbook_tree <- rpart::rpart(gender~Height+textbooks,data=train_ugrad)
+plot(as.party(gender_height_textbook_tree))
+```
+
+
+```{r}
+test_ugrad$pred1 <- predict(gender_height_textbook_tree, newdata=test_ugrad,type="class")
+table(test_ugrad$pred1, test_ugrad$gender)
+```
+
+```{r}
+test_grid <- expand.grid(Height = seq(60, 80, 0.1), textbooks = seq(0, 1000, 1))
+test_grid$pred <- predict(gender_height_textbook_tree, newdata = test_grid, type="class")
+pred_plot <- ggplot(test_grid,aes(x=Height,y=textbooks,color=as.factor(pred)))+geom_point()
+pred_plot
+```
+
+```{r}
+ggplot() +
+  #geom_point(data = train_ugrad, aes(x = Height, y = mheight, colour = gender)) +
+  geom_point(data = test_ugrad %>% filter(!is.na(gender), !is.na(Height), !is.na(textbooks)), 
+             aes(x = Height, y = textbooks, colour = ifelse(pred1==gender,
+                                                          ifelse(gender=='f','ff','mm'),
+                                                          ifelse(gender=='f', 'fm', 'mf'))))+
+  labs(color = 'match')
+
+```
+
+
+
+```{r}
+gender_height_mheight_tree <- rpart::rpart(gender~Height+mheight,data=train_ugrad)
+plot(as.party(gender_height_mheight_tree))
+```
+
+```{r}
+test_ugrad$pred2 <- predict(gender_height_mheight_tree, newdata=test_ugrad,type="class")
+acc <- sum(test_ugrad$pred2 == test_ugrad$gender)/dim(test_ugrad)[1]
+table(test_ugrad$pred2,test_ugrad$gender)
+```
+
+```{r}
+ggplot() +
+  #geom_point(data = train_ugrad, aes(x = Height, y = mheight, colour = gender)) +
+  geom_point(data = test_ugrad %>% filter(!is.na(gender), !is.na(Height), !is.na(mheight)), 
+             aes(x = Height, y = mheight, colour = ifelse(pred2==gender,
+                                                          ifelse(gender=='f','ff','mm'),
+                                                          ifelse(gender=='f', 'fm', 'mf'))))+
+  labs(color = 'match')
+
+```
+
+```{r}
+test_grid2 <- expand.grid(Height = seq(60, 80, 0.1), mheight = seq(60, 80, 0.1))
+test_grid2$pred <- predict(gender_height_mheight_tree, newdata = test_grid2, type="class")
+pred_plot <- ggplot(test_grid2,aes(x=Height,y=mheight,color=as.factor(pred)))+geom_point()
+pred_plot
+
+```
+

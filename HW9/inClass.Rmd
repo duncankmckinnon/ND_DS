@@ -1,0 +1,157 @@
+
+```{r}
+library(tidyverse)
+library(neuralnet)
+
+```
+
+
+```{r}
+#make group 1
+set.seed(1847)
+x1 <- rnorm(250,6,1)
+x2 <- rnorm(250,9,1)
+y <- rep(1,250)
+g1 <- cbind.data.frame(x1,x2,y)
+glimpse(g1)
+#make group2
+x1 <- rnorm(250,-10,1)
+x2 <- rnorm(250,-10,1)
+y <- rep(0,250)
+g2 <- cbind.data.frame(x1,x2,y)
+glimpse(g2)
+#make group3
+x1 <- rnorm(250,7,1)
+x2 <- rnorm(250,3,1)
+y <- rep(1,250)
+g3 <- cbind.data.frame(x1,x2,y)
+glimpse(g3)
+#combine the dataframes
+sim_dat1 <- rbind(g1,g2,g3)
+glimpse(sim_dat1)
+
+```
+
+```{r}
+ggplot(sim_dat1) +
+  geom_point(aes(x = x1, y = x2, color = y)) + 
+  theme_bw()
+```
+
+
+```{r}
+n <- nrow(sim_dat1)
+#split the data into training and test sets
+set.seed(1847)
+test_index <- sample.int(n,size=round(0.2*n))
+train_sim1 <- sim_dat1[-test_index,]
+head(train_sim1)
+test_sim1 <- sim_dat1[test_index,]
+
+```
+
+```{r}
+#make a formula
+sim_form <- as.formula(y~x1+x2)
+#predict the test data with one node
+set.seed(1847)
+sim_nn1 <- neuralnet(sim_form,train_sim1,hidden=1,linear.output=F,rep=10,lifesign = "minimal")
+
+```
+
+```{r}
+plot(sim_nn1,rep="best")
+
+```
+
+```{r}
+test_nn1 <- compute(sim_nn1,test_sim1[-3],rep=10)
+confusion1 <- table(round(test_nn1$net.result),test_sim1$y)
+confusion1
+```
+
+```{r}
+#make a grid of points
+test_grid <- expand.grid(x1 = seq(-12, 12, 0.1), x2 = seq(-11, 11, 0.1))
+tg1 <- test_grid
+tg2 <- test_grid
+
+```
+
+```{r}
+#create a prediction grid with one node
+grid_nn1 <- compute(sim_nn1,test_grid,rep=10)
+tg1$pred <- round(grid_nn1$net.result)
+```
+
+```{r}
+ggplot(tg1) + 
+  geom_point(aes(x=x1, y=x2, color=pred)) + 
+  geom_point(data=train_sim1, aes(x = x1, y = x2, shape = as.factor(y))) +
+  theme_bw()
+```
+
+```{r}
+#predict the test data with two nodes
+set.seed(1847)
+sim_nn2 <- neuralnet(sim_form,train_sim1,hidden=3,linear.output=F,rep=10,lifesign = "minimal")
+
+```
+
+```{r}
+plot(sim_nn2, rep="best")
+```
+
+```{r}
+
+test_nn2 <- compute(sim_nn2,test_sim1[-3],rep=9)
+confusion2 <- table(round(test_nn2$net.result),test_sim1$y)
+confusion2
+
+
+```
+
+```{r}
+grid_nn2 <- compute(sim_nn2,test_grid,rep=9)
+tg2$pred <- round(grid_nn2$net.result)
+
+```
+
+```{r}
+ggplot(tg2) + 
+  geom_point(aes(x=x1, y=x2, color=pred)) + 
+  geom_point(data=train_sim1, aes(x = x1, y = x2, shape = as.factor(y))) +
+  theme_bw()
+```
+
+```{r}
+#make group 1
+set.seed(1847)
+x1 <- rnorm(250,6,1)
+x2 <- rnorm(250,9,1)
+y <- rep(1,250)
+ga <- cbind.data.frame(x1,x2,y)
+glimpse(ga)
+#make group2
+x1 <- rnorm(250,-10,1)
+x2 <- rnorm(250,-10,1)
+y <- rep(0,250)
+gb <- cbind.data.frame(x1,x2,y)
+glimpse(gb)
+#make group3
+x1 <- rnorm(250,7,1)
+x2 <- rnorm(250,3,1)
+y <- rep(1,250)
+gc <- cbind.data.frame(x1,x2,y)
+glimpse(gc)
+#combine the dataframes
+sim_dat2 <- rbind(ga,gb,gc)
+glimpse(sim_dat2)
+
+```
+
+```{r}
+ggplot(sim_dat2) +
+  geom_point(aes(x = x1, y = x2, color = y)) + 
+  theme_bw()
+```

@@ -1,0 +1,207 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+# Duncan McKinnon
+# West
+# HW 10
+
+## Load Packages and Data 
+
+### 1).
+
+```{r, warning=FALSE, message=FALSE}
+# load tidyverse
+suppressPackageStartupMessages({
+  library(tidyverse)
+})
+
+# load skulls data
+skulls <- read_csv("skulls.csv")
+glimpse(skulls)
+```
+
+## Data Preprocessing
+
+### 2, 3).
+
+```{r}
+# remove na's and scale skulls data
+skulls <- skulls %>% na.omit() %>% lapply(scale) %>% as.data.frame()
+dim(skulls)
+glimpse(skulls)
+```
+
+## kMeans Clustering Model and Analysis
+
+### 4).
+
+```{r}
+# set random seed
+set.seed(1847)
+
+# set up k vals to test
+kms <- 1:10
+
+# run kmeans on all k in kms and collect clustering models
+kmods <- lapply(kms, 
+                function(k){ 
+                  return( kmeans(skulls, centers = k, nstart = 20) ) 
+                } 
+              )
+
+# collect within cluster sum of squares as vector
+kss <- kmods %>% lapply('[[', 'tot.withinss') %>% unlist()
+
+# get values of ratio between sequential sum-of-squares results for k to help identify 
+# inflection point and diminishing returns (divide first nine kss by last nine kss,
+# assuming the ratio will approach 1.0 as increasing k has less impact on ss)
+rss <- c(kss[1:9] / kss[2:10], 1.0)
+
+# collect results in data frame
+kdf <- data.frame('k' = kms, 'ss' = kss, 'rss' = rss)
+
+# set base plot for exploring kdf
+p <- ggplot(kdf) + theme_bw()
+
+# plot sum of squares to find inflection point 
+# where increasing k no longer significantly reduces within cluster sum of squares
+p + geom_line(aes(x = k, y = ss, color = rss), size=1) + 
+  geom_point(aes(x = k, y = ss, color = rss)) +
+  labs(title = 'kMeans Within Cluster Sum-Of-Squares', 
+       subtitle = 'Over Different Values of K',
+       x = 'K',
+       y = 'Total Within Cluster Sum-of-Squares',
+       color = 'Sequential Ratio of \nTotal Within Cluster SoSq\'s \n[T(k) / T(k+1)]') +
+  scale_x_continuous(breaks = 1:10, labels = 1:10)
+```
+
+
+```{r}
+# Plot rate of change in within cluster sum of squares for sequential values of k
+p + geom_line(aes(x = k, y = rss, color = ss), size=1) + 
+  geom_point(aes(x = k, y = rss, color = ss)) +
+  labs(title = 'kMeans Sequential Ratios for Within Cluster Sum-Of-Squares', 
+       subtitle = 'Over Different Values of K',
+       x = 'K',
+       y = 'Sequential Ratio of \nTotal Within Cluster SoSq\'s \n[T(k) / T(k+1)]',
+       color = 'Total Within Cluster Sum-of-Squares') +
+  scale_x_continuous(breaks = 1:10, labels = 1:10)
+```
+
+Looking at the graph of the within cluster sum-of-squares by k value and the difference in sequential sum-of-squares by k-values, the first thing I notice is that the difference between sequential k values approach 1.0, but it never gets very close.  Increasing k continues to have a relatively linear impact on the decrease in within cluster sum-of-squares right up to k = 10.  While the k's never truly converge, the decrease in within cluster sum-of-squares is clearly super linear below k = 4, and subsequently becomes pretty linear.  This indicates that the highest value of k that is still having a significant impact is around 3 or 4, so the best kmeans model for this data would probably be the one for k = 4.
+
+### 5).
+
+```{r}
+# change k to test different models (best chosen k = 4)
+k_km <- 4
+
+# change skulls_fact_km to test different factors (chosen GOL)
+skulls_fact_km <- 'GOL' 
+
+# select kmeans model (based on k_km)
+km_mod <- kmods[[k_km]]
+
+# add cluster labels to data
+skulls_km <- skulls %>% mutate(cluster = km_mod$cluster)
+
+# plot skulls_fact_km distribution box plots for k_km clusters
+ggplot(skulls_km) +
+  geom_boxplot(aes_string(y = skulls_fact_km, x = 'cluster', group = 'cluster')) + 
+  labs(title = paste('Boxplots of ', skulls_fact_km,' for Clustering with k=', k_km, sep=''),
+       subtitle = 'Using kMeans Clustering',
+       x = 'Cluster Assignment',
+       y = paste(skulls_fact_km, 'Distribution')) + 
+  scale_x_continuous(breaks = 1:k_km, labels = 1:k_km) + 
+  theme_bw()
+```
+
+### 6).
+
+```{r}
+# get total within group sum of squares for clustering with k
+km_mod$tot.withinss
+```
+
+## Heirarchical Clustering Model and Analysis
+
+### 7).
+
+```{r}
+# set random seed
+set.seed(1842)
+
+# heirarchical clustering on skull data using complete linkage
+skulls_dist_complete <- dist(skulls)
+skulls_hclust_complete <- hclust(skulls_dist_complete, method = "complete")
+
+plot(skulls_hclust_complete, cex = 0.9)
+```
+
+### 8).
+
+```{r}
+# change k to test different models (default chosen k = 4)
+k_h_complete <- 4
+
+# change skull_fact_h_complete to test different factors (chosen GOL)
+skulls_fact_h_complete <- 'GOL' 
+
+# cut tree down to k_h_complete
+skulls_cut_complete <- cutree(skulls_hclust_complete, k_h_complete)
+
+# add cluster labels to data
+skulls_h_complete <- skulls %>% mutate(cluster = skulls_cut_complete)
+
+# plot skulls_fact_h_complete distribution box plots for k_h_complete clusters
+ggplot(skulls_h_complete) +
+  geom_boxplot(aes_string(y = skulls_fact_h_complete, x = 'cluster', group = 'cluster')) + 
+  labs(title = paste('Boxplots of ', skulls_fact_h_complete,' for Hierarchical Clustering with k=', k_h_complete, sep=''),
+       subtitle = 'Using Complete Linkage',
+       x = 'Cluster Assignment',
+       y = paste(skulls_fact_h_complete, 'Distribution')) + 
+  scale_x_continuous(breaks = 1:k_h_complete, labels = 1:k_h_complete) + 
+  theme_bw()
+```
+
+### 9).
+
+```{r}
+# set random seed
+set.seed(1842)
+
+# heirarchical clustering on skull data using average linkage
+skulls_dist_avg <- dist(skulls)
+skulls_hclust_avg <- hclust(skulls_dist_avg, method = "average")
+
+plot(skulls_hclust_avg, cex = 0.9)
+```
+
+### 10).
+
+```{r}
+# change k to test different models (default chosen k = 4)
+k_h_avg <- 4
+
+# change skulls_fact_h_avg to test different factors (chosen GOL)
+skulls_fact_h_avg <- 'GOL' 
+
+# cut tree down to k_h_avg
+skulls_cut_avg <- cutree(skulls_hclust_avg, k_h_avg)
+
+# add cluster labels to data
+skulls_h_avg <- skulls %>% mutate(cluster = skulls_cut_avg)
+
+# plot skulls_fact_h_avg distribution box plots for k_h_avg hierarchical clusters
+ggplot(skulls_h_avg) +
+  geom_boxplot(aes_string(y = skulls_fact_h_avg, x = 'cluster', group = 'cluster')) + 
+  labs(title = paste('Boxplots of ', skulls_fact_h_avg,' for Hierarchical Clustering with k=', k_h_avg, sep=''),
+       subtitle = 'Using Average Linkage',
+       x = 'Cluster Assignment',
+       y = paste(skulls_fact_h_avg, 'Distribution')) + 
+  scale_x_continuous(breaks = 1:k_h_avg, labels = 1:k_h_avg) + 
+  theme_bw()
+```
+

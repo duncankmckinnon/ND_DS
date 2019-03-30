@@ -1,0 +1,303 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+# Duncan McKinnon
+# West
+# HW 7
+
+```{r message=FALSE,warning=FALSE}
+# Load packages and data
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(rpart)
+  library(partykit)
+  library(randomForest)
+  library(NHANES)
+})
+
+```
+
+
+## QA
+
+### 1).
+
+```{r}
+# set random seed
+set.seed(1847)
+
+# get sample size and training proportion 
+relevant <- c("HardDrugs", "RegularMarij", "Age", "AlcoholYear" , "BMI" , "Gender" , "HHIncomeMid" , "Weight" , "Height" , "SexNumPartnLife" , "TotChol")
+m <- dim(NHANES[,relevant])
+p <- 0.2
+
+train_indices <- sample.int(m[1], (1-p) * m[1])
+train_data <- NHANES[train_indices, relevant]
+test_data <- NHANES[-train_indices, relevant]
+
+glimpse(train_data)
+```
+
+```{r}
+# create modeling formula
+f <- formula(HardDrugs ~ RegularMarij + Age + AlcoholYear + BMI + Gender + HHIncomeMid + Weight + Height + SexNumPartnLife + TotChol)
+m <- c(m[1], 10)
+```
+
+### 2).
+
+```{r}
+# create bagging model with 100 trees
+bagged_trees_100 <- randomForest(f, data = train_data, mtry = m[2], ntree = 100, na.action = na.omit)
+
+bagged_trees_100
+```
+
+### 3).
+
+```{r}
+# create bagging model with 500 trees
+bagged_trees_500 <- randomForest(f, data = train_data, mtry = m[2], ntree = 500, na.action = na.omit)
+
+bagged_trees_500
+```
+
+### 4).
+
+```{r}
+# create bagging model with 1000 trees
+bagged_trees_1000 <- randomForest(f, data = train_data, mtry = m[2], ntree = 1000, na.action = na.omit)
+
+bagged_trees_1000
+```
+
+### 5).
+
+The three models shown above used bagging with different numbers of trees.  Despite the large variation in the number of trees used, all of the models had relatively similar OOB error rate and performed similarly in cross validation.  The models generated ended up being similar because every tree they created had to account for all the predictive variables within the sample set used.  Because every tree had the same predictors, increasing the number of trees did little to effect error rate because most of the trees would be expected to come to similar conclusions about the importance of the predictors.  By using all the predictors on each tree, we greatly limit the number of possible decision trees that can go into our random forest, and with so many similar training samples, increasing the number of trees only increases duplication.
+
+### 6).
+
+```{r}
+# get importance of predictors for bagged rf with 1000 trees
+importance(bagged_trees_1000)
+```
+
+### 7).
+
+From this importance we can see that the predictor with the greatest mean decrease in gini impurity was regular marijuana use.  After that both total cholesterol and mean number of partners in life were similarly important, and may even have masked each other in many trees.  The same can be said of Height and Age.
+
+### 8).
+
+```{r}
+# predict test set on bagged rf with 1000 trees
+test_pred_bagged_1000 <- predict(bagged_trees_1000, newdata=test_data)
+
+# create confusion matrix
+conf_matrix <- table(test_pred_bagged_1000, test_data$HardDrugs)
+
+conf_matrix
+```
+
+### 9).
+
+```{r}
+# create random forest model with 500 trees and 5 predictors/tree
+rf_5 <- randomForest(f, data = train_data, mtry = 5, ntree = 500, na.action = na.omit)
+
+rf_5
+```
+
+### 10).
+
+```{r}
+# create random forest model with 500 trees and 2 predictors/tree
+rf_2 <- randomForest(f, data = train_data, mtry = 2, ntree = 500, na.action = na.omit)
+
+rf_2
+```
+
+### 11).
+
+```{r}
+# create random forest model with 500 trees and 1 predictors/tree
+rf_1 <- randomForest(f, data = train_data, mtry = 1, ntree = 500, na.action = na.omit)
+
+rf_1
+```
+
+### 12).
+
+After testing the random forest on the training data using 1, 2 and 5 predictors per tree, I would use the model that selected 5 predictors per tree. With 1 predictor, there can only be 1 split per tree, and few of the tree will include the most significant predictors, leading to the highest OOB error (11.59%).  Using 2 predictors had the lowest OOB error (8.06), and seemed less likely to penalize slight differences in the significance of predictors than using 10 or even 5 predictors, since many of the trees generated would not have similarly significant predictors.  
+
+## QB
+
+### 1).
+
+```{r}
+# set random seed
+set.seed(1847)
+
+# create sample of data
+data_unif <- data.frame( y = sample(c('yes','no'), 500, replace = T), x1 = runif(500, 0, 10), x2 = runif(500, 0, 10))
+
+glimpse(data_unif)
+
+```
+
+### 2).
+
+```{r}
+# set random seed
+set.seed(1847)
+m <- 500
+p <- 0.2
+
+train_indices_unif <- sample.int(m, (1-p)*m)
+train_data_unif <- data_unif[train_indices_unif, ]
+test_data_unif <- data_unif[-train_indices_unif, ]
+
+glimpse(train_data_unif)
+```
+
+### 3).
+
+```{r}
+# create formula to model
+f_unif <- formula(y ~ x1 + x2)
+
+# create bagging model with 100 trees
+bagged_unif_100 <- randomForest(f_unif, data = train_data_unif, mtry = 2, ntree = 100, na.action = na.omit)
+
+bagged_unif_100
+```
+
+### 4).
+
+The out of bag error in this bagging model was a little over 50% (53.75%).  This is what we would expect given that the labels and predictors were randomly generated.  We wouldn't expect there to be any correlation between x1,x2 and y, and since y has two possible labels we would expect about half the predictions to match the labels just due to random chance.
+
+### 5).
+
+```{r}
+# predict the test set
+pred_test_unif_100 <- predict(bagged_unif_100, newdata = test_data_unif)
+
+# create confusion matrix
+conf_matrix_unif <- table(pred_test_unif_100, test_data_unif$y)
+
+conf_matrix_unif
+```
+
+### 6).
+
+```{r}
+# create test grid
+test_grid_unif <- expand.grid(x1 = seq(0, 10, 0.1), x2 = seq(0, 10, 0.1))
+
+# predict values of test grid with bagged model
+test_grid_unif$pred <- predict(bagged_unif_100, newdata = test_grid_unif, type="class")
+
+# plot predictions
+pred_plot <- ggplot(test_grid_unif,aes(x=x1,y=x2,color=pred))+geom_point()
+pred_plot
+```
+
+## QC
+
+```{r}
+# set random seed
+set.seed(1847)
+
+# group 1
+x1 <- rnorm(250, 6, 1)
+x2 <- rnorm(250, 6, 1)
+y <- rep('yes', 250)
+g1 <- cbind.data.frame(x1, x2, y)
+glimpse(g1)
+```
+
+```{r}
+# set random seed
+set.seed(1847)
+
+# group 2
+x1 <- rnorm(250, 5, 1)
+x2 <- rnorm(250, 5, 1)
+y <- rep('no', 250)
+g2 <- cbind.data.frame(x1, x2, y)
+glimpse(g2)
+```
+
+```{r}
+# combine g1 and g2
+sim_dat3 <- rbind(g1, g2)
+glimpse(sim_dat3)
+```
+
+### 1).
+
+```{r}
+# scatter plot of sim data and labels
+ggplot(sim_dat3) + 
+  geom_point(aes(x = x1, y = x2, color = y))
+```
+
+### 2).
+
+```{r}
+# set random seed
+set.seed(1847)
+m <- 500
+p <- 0.2
+
+# create training and testing datasets
+train_indices_sim <- sample.int(m, (1-p)*m)
+train_data_sim <- sim_dat3[train_indices_sim,]
+test_data_sim <- sim_dat3[-train_indices_sim,]
+
+glimpse(train_data_sim)
+```
+
+### 3).
+
+```{r}
+# create formula to model
+f_sim <- formula(y ~ x1 + x2)
+
+# create bagging model with 100 trees
+bagged_sim_100 <- randomForest(f_sim, data = train_data_sim, mtry = 2, ntree = 100, na.action = na.omit)
+
+bagged_sim_100
+```
+
+### 4).
+
+```{r}
+# predict the test set
+pred_test_sim_100 <- predict(bagged_sim_100, newdata = test_data_sim)
+
+# create confusion matrix
+conf_matrix_sim <- table(pred_test_sim_100, test_data_sim$y)
+
+conf_matrix_sim
+
+```
+
+### 5).
+
+```{r}
+# create test grid
+test_grid_sim <- expand.grid(x1 = seq(0, 10, 0.1), x2 = seq(0, 10, 0.1))
+
+# predict values of test grid with bagged model
+test_grid_sim$pred <- predict(bagged_sim_100, newdata = test_grid_sim, type="class")
+
+# plot predictions
+pred_plot <- ggplot(test_grid_sim ,aes(x=x1,y=x2,color=pred))+geom_point()
+pred_plot
+```
+
+### 6).
+
+It's easy to see that there is a relationship between predictors and labels in the simulated for data in question C.  The separations between the two labels include large continuous segments, with only a few overlapping sections near boundaries where the values of the predictors may not allow the labels to easily be identified.  In the uniformly distributed and randomly labeled data in question B, there were many small overlapping partitions with no clear boundaries or consistent segments for any values of the predictors.  It was clearly just noise.

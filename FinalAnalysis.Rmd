@@ -1,0 +1,363 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+# Final Project Analysis
+## * Brandon Good * Duncan McKinnon * Kirk Reese *
+
+## Loading Data
+
+```{r, warning=FALSE, message=FALSE}
+# load packages
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(randomForest)
+  library(rpart)
+  library(partykit)
+  library(class)
+})
+```
+
+```{r, warning=FALSE, message=FALSE}
+# load data set
+cancer_data <- read_csv("C:/Users/dunca/OneDrive/Desktop/Course Work/Intro to Data Science/Data/FNA_cancer.csv")
+glimpse(cancer_data)
+```
+
+## EDA
+
+### Data Cleaning
+
+```{r, warning=FALSE, message=FALSE}
+# change concave points field names to fit pattern
+cancer_data <- cancer_data %>% 
+  mutate(concave_points_mean = `concave points_mean`,
+         concave_points_se = `concave points_se`,
+         concave_points_worst = `concave points_worst`) %>%
+  # remove old field names and unused field X33
+  select(-`concave points_mean`, -`concave points_se`, -`concave points_worst`, -X33)
+
+# check if there are any NA values left in the data
+cancer_data %>% lapply( function(x){ return( c('NA Count' = sum( is.na( x ) ) ) ) } )
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+# select attribute name
+fields <- c('radius',
+            'texture',
+            'perimeter',
+            'area',
+            'smoothness',
+            'compactness',
+            'concavity',
+            'concave_points',
+            'symmetry',
+            'fractal_dimension')
+
+# create list for stats of each field attribute
+data_by_field <- list()
+for(i in fields){
+  d <- cancer_data %>% select(starts_with(i))
+  data_by_field[[i]] <- d
+}
+
+names(data_by_field)
+```
+
+### Summarize fields
+
+```{r, warning=FALSE, message=FALSE}
+## summarize data fields by grouping 
+lapply(data_by_field, summary)
+```
+
+### Compare Field Stats to Response
+
+```{r}
+# plot diagnosis by mean/worst measurement for each variable
+plot_f <- function(d){
+  # names are _mean, _se, _worst
+  name_f <- names(d)
+  
+  # plot points with diagnosis as color, change label
+  p <- ggplot(d, aes(color = cancer_data$diagnosis)) + 
+    geom_point(aes_string(x = name_f[1], y = name_f[3])) +
+    labs(title = str_remove(name_f[1], '_mean'), 
+         x = 'mean', y = 'worst', color='diagnosis')
+  return(p)
+}
+
+# plot distribution for each field
+lapply(data_by_field, plot_f)
+```
+
+These plots of the mean and worst measurements for each field over the resultant diagnosis show a relatively consistent pattern of higher measurements resulting in more malignant diagnoses.  Since the worst and mean relationships are intimately related to one another and to the standard error, it makes sense that the plots show direct correlation between statistics for many of the variables.  
+We can expect standard errors to be higher for observations where the worst measurement is >> than the mean of all measurements, but in this case, we left standard error out of the visualizations for the sake of clarity.
+
+## Form Training and Test Data Sets
+
+```{r, warning=FALSE, message=FALSE}
+# set random seed
+set.seed(1847)
+p <- 0.2 # proportion of test data
+m <- 569 # number of observations
+
+train_inds <- sample.int(m, (1-p)*m)
+train_d <- cancer_data[train_inds,]
+test_d <- cancer_data[-train_inds,]
+
+dim(train_d)
+dim(test_d)
+```
+
+### Model Evaluation Function
+
+```{r}
+# Function for generating confusion matrix and performance evaluation statistics for a model
+# * mod = statistical model
+# * test = test data set to evaluate model with
+# * y = response field from test dataset
+confusion_eval <- function(mod, test, y){
+  pred <- predict(mod, newdata = test, type = 'class')
+  conf <- table(pred=pred, actual=y)
+  accuracy <- sum(diag(conf)) / sum(conf)
+  error_rate <- 1 - accuracy
+  sensitivity <- conf[1,1] / sum(conf[,1])
+  precision <- conf[1,1] / sum(conf[1,])
+  miss_rate <- 1 - sensitivity
+  fall_out <- 1 - precision
+  f1 <- 2 * (precision * sensitivity) / (precision + sensitivity)
+  return(list(
+    prediction = pred,
+    confusion = conf,
+    stat = list(
+      accuracy = accuracy,
+      error_rate = error_rate,
+      sensitivity = sensitivity,
+      precision = precision,
+      miss_rate = miss_rate,
+      fall_out = fall_out,
+      f1 = f1
+    )
+  )) 
+}
+```
+
+
+## Decision Tree Classification
+
+### Training Model on All
+
+```{r}
+# create decision tree using all training data
+dtm <- rpart(diagnosis~., data = train_d)
+dtm
+
+# plot decision tree
+plot(as.party(dtm))
+```
+
+### Performance Evaluation
+
+```{r}
+# generate predictions and confusion matrix for decision tree model
+confusion_eval(mod = dtm, test = test_d, y = test_d$diagnosis)
+```
+
+### Testing Pruning
+
+```{r}
+# Update decision tree, 
+# pruning such that branching must improve performance by at least 10% for each split
+dtm_10 <- prune.rpart(dtm, cp = 0.1)
+dtm_10
+
+# plot updated model
+plot(as.party(dtm_10))
+```
+
+
+### Pruning Performance Evaluation
+
+```{r}
+# generate predictions and confusion matrix for pruned decision tree model
+conf <- confusion_eval(mod = dtm_10, test = test_d, y = test_d$diagnosis)
+conf
+```
+
+Pruning the decision tree by penalizing branches that didn't greatly improve the model accuracy ended up creating a much simpler model that only required one split to correctly categorize 87% of the test data.  This is pretty interesting because it means that almost 90% of the decision in this decision tree is just looking at the worst area measurements to determine if a tumor is benign or malignant.
+One thing we may want to consider in this pruned model is that the simpler tree produced more false negatives, incorrectly predicting that a malignant tumor was benign.  Since it would always be better in this situation to have false positive that start getting treated than false negatives that never get treated, it may be worth the added complexity of the original model if it can decrease the rate of false negatives.
+
+## Random Forest Classification
+
+### Training Model on All
+
+```{r}
+# set random seed
+set.seed(1847)
+
+# get data in form for random forest model
+train_rf <- train_d %>% select(-diagnosis)
+y_rf <- as.factor(train_d$diagnosis)
+test_rf <- test_d %>% select(-diagnosis)
+ytest_rf <- as.factor(test_d$diagnosis)
+
+# create random forest model
+rfm <- randomForest(x = train_rf, y = y_rf)
+rfm
+
+```
+
+### Performance Evaluation
+
+```{r}
+# generate predictions and confusion matrix for random forest model
+confusion_eval(mod = rfm, test = test_rf, y = ytest_rf)
+```
+
+### Testing Random Forest with Different Hyper-Parameters
+
+```{r}
+# set random seed
+set.seed(1847)
+
+# set parameters to test
+mtries <- c(1, 2, 3, 5, 10, 15)
+ntrees <- c(10, 100, 300, 500)
+nms <- c()
+rf_models <- list()
+rf_conf_matrices <- list()
+rf_stats <- data.frame(accuracy = c(), 
+                       error_rate = c(), 
+                       sensitivity = c(), 
+                       precision = c(), 
+                       miss_rate = c(), 
+                       fall_out = c(), 
+                       f1 = c(), 
+                       mtry = c(), 
+                       ntree = c())
+
+for(i in mtries){
+  for(j in ntrees){
+    nm <- paste('mtry:', i, 'ntree:', j)
+    nms <- c(nms, nm)
+    mod <- randomForest(x = train_rf, 
+                        y = y_rf, 
+                        mtry=i, 
+                        ntree = j)
+    rf_models[[nm]] <- mod
+    evalMod <- confusion_eval(mod = mod, test = test_rf, y = ytest_rf)
+    rf_conf_matrices[[nm]] <- evalMod$confusion
+    rf_stats <- rbind(rf_stats, cbind(as.data.frame(evalMod$stat), data.frame(mtry = i, ntree = j)))
+  }
+}
+
+ggplot(rf_stats) +
+  geom_point(aes(x = mtry, y = accuracy, color = 'accuracy', alpha = 0.25)) + 
+  geom_point(aes(x = mtry, y = precision, color = 'precision', alpha = 0.25)) + 
+  geom_point(aes(x = mtry, y = sensitivity, color = 'sensitivity', alpha = 0.25)) + 
+  facet_wrap(~ntree) + 
+  labs(title = 'Model Performance by nTrees and mVariables',
+       x = 'Selection Size',
+       y = 'Performance %',
+       color = 'Performance Metric',
+       alpha = NULL) +
+  scale_x_continuous(breaks = mtries, labels = mtries) + 
+  lims(y = c(.93,0.99)) +
+  theme_bw()
+
+```
+
+All of the models tested ended up with metrics that all fell between 93-99%.  While all the models performed well, we wanted to select a model that would reduce the risk of false negatives (in favor of false positives), since it would be far more dangerous to have a malignant tumor misdiagnosed as benign.  Since a high sensitivity indicates a lower rate of false negatives to true positives, we wanted to prioritize a high sensitivity over accuracy and precision.  Among the models that scored the best in sensitivity, accuracy and precision (respectively), the simplest was the model with 10 trees trained with 10 variables each.
+
+### Choose Top Perfoming Random Forest
+
+```{r}
+top_rf_model <- rf_models$`mtry: 10 ntree: 10`
+top_rf_model
+```
+
+## K Nearest Neighbors
+
+### Setup for KNN Models
+
+```{r}
+# set random seed
+set.seed(1847)
+
+# set up training and test data
+train_knn <- train_rf
+y_knn <- y_rf
+test_knn <- test_rf
+ytest_knn <- ytest_rf
+
+# function to run knn model with k and return the performance metrics
+test_k <- function(k){
+  # create knn model of data
+  knnm <- knn(train_knn, test_knn, cl = y_knn, k = k)
+  
+  
+  # confusion evaluation for knn and metrics
+  confusion_knn <- table(pred=ytest_knn, actual=knnm)
+  accuracy_knn <- sum(diag(confusion_knn)) / sum(confusion_knn)
+  error_rate_knn <- 1 - accuracy_knn
+  sensitivity_knn <- confusion_knn[1,1] / sum(confusion_knn[,1])
+  precision_knn <- confusion_knn[1,1] / sum(confusion_knn[1,])
+  miss_rate_knn <- 1 - sensitivity_knn
+  fall_out_knn <- 1 - precision_knn
+  f1_knn <- 2 * (precision_knn * sensitivity_knn) / (precision_knn + sensitivity_knn)
+  
+  # return model performance for k
+  return(list(
+    'k' = k,
+    'confusion' = confusion_knn,
+    'accuracy' = accuracy_knn,
+    'error_rate' = error_rate_knn,
+    'sensitivity' = sensitivity_knn,
+    'precision' = precision_knn,
+    'miss_rate' = miss_rate_knn,
+    'fall_out' = fall_out_knn,
+    'f1' = f1_knn))
+}
+```
+
+### Performance Evaluation
+
+```{r}
+# run knn modeling on values of k
+ks <- c(1,2,3,5,15,20,100)
+knn_mods <- lapply(ks, test_k)
+
+# recover model performance metrics
+acc <- unlist(knn_mods %>% lapply('[[', 'accuracy'))
+prec <- unlist(knn_mods %>% lapply('[[', 'precision'))
+sens <- unlist(knn_mods %>% lapply('[[', 'sensitivity'))
+
+# create performance data frame
+knn_perf <- data.frame(ks, acc, prec, sens)
+
+knn_perf
+```
+
+### Choosing Top Performing KNN
+
+```{r}
+# plot performance metrics over k
+ggplot(knn_perf, aes(x = c(1,2,3,4,5,6,7))) + 
+  geom_point(aes(y = acc, alpha = 0.25, color = 'accuracy')) + 
+  geom_point(aes(y = prec, alpha = 0.25, color = 'precision')) + 
+  geom_point(aes(y = sens, alpha = 0.25, color = 'sensitivity')) +
+  labs(title='Performance of KNN model for different values of k',
+       x = 'k', y = 'Performance %', color = 'Metric', alpha = NULL) +
+  ylim(0.6, 1) + 
+  scale_x_continuous(breaks = c(1,2,3,4,5,6,7), labels = ks) +
+  theme_bw()
+```
+
+Given that we want to find a model that is accurate but also prioritizes sensitivity over precision (since it would be more dangerous to falsely conclude that a tumor is benign than to falsely conclude that a tumor is malignant), we would want to choose the model for k=1. While k=1 had the highest rate of false positives on this data set, it alse had the lowest rate of false negatives, meaning that it would be unlikely to falsely conclude that a tumor is benign when it is actually malignant.  Even so, the sensitivity was only around 80% in the best case, so this model would probably not work well for our use case.
+
+
+
+

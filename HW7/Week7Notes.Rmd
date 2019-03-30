@@ -1,0 +1,87 @@
+
+```{r message=FALSE,warning=FALSE}
+library(tidyverse)
+library(readr)
+library(randomForest)
+undergrad <- read_csv("C:/Users/dunca/OneDrive/Desktop/Course Work/Intro to Data Science/Data/undergrad_survey.csv")
+
+glimpse(undergrad)
+```
+
+
+```{r}
+#LOAD the relevant libraries
+library(NHANES)
+library(rpart)
+library(partykit)
+
+
+glimpse(NHANES)
+```
+
+```{r}
+NHANES2 <- NHANES %>% select(SleepTrouble,Gender,Age,MaritalStatus,HHIncomeMid,BMI,AlcoholYear,Smoke100,RegularMarij,PregnantNow)
+NHANES2 <- na.omit(NHANES2)
+glimpse(NHANES2)
+```
+
+```{r}
+n <- nrow(NHANES2)
+set.seed(1874)
+test_index <- sample.int(n,size=round(0.2*n))
+glimpse(test_index)
+train_nhanes <- NHANES2[-test_index,]
+glimpse(train_nhanes)
+test_nhanes <- NHANES2[test_index,]
+glimpse(test_nhanes)
+
+
+```
+
+```{r}
+#create a formula
+form_sleep <- as.formula(SleepTrouble~Gender+Age+MaritalStatus+HHIncomeMid+BMI+AlcoholYear+Smoke100+RegularMarij+PregnantNow)
+
+#fit the tree
+sleeptroub_tree <- rpart(form_sleep,data=train_nhanes)
+sleeptroub_tree
+
+plot(as.party(sleeptroub_tree))
+```
+
+```{r}
+printcp(sleeptroub_tree)
+
+```
+
+```{r}
+#prune the tree
+new_sleep <- prune(sleeptroub_tree,cp=0.02)
+new_sleep
+```
+
+```{r}
+new_sleep_pred <- predict(new_sleep,newdata = test_nhanes,type="class")
+table(new_sleep_pred, test_nhanes$SleepTrouble)
+```
+
+```{r}
+set.seed(1874)
+rf <- randomForest(form_sleep, data = train_nhanes, ntree = 300, mtry = 3)
+rf
+```
+```{r}
+predrf <- predict(rf, newdata = test_nhanes)
+confm <- table(predrf, test_nhanes$SleepTrouble)
+confm
+```
+
+```{r}
+misclassified <- (confm[1,2] + confm[2,1]) / sum(confm)
+misclassified
+```
+
+```{r}
+importance(rf)
+```
+
