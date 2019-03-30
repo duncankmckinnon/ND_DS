@@ -18,7 +18,8 @@ suppressPackageStartupMessages({
 })
 
 # Load Houses dataset with messages suppressed
-Houses <- read_csv("Houses.csv", col_names = T)
+Houses <- read_csv("../Data/Houses.csv", col_names = T)
+glimpse(Houses)
 ```
 
 ### 1).	

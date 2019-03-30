@@ -4,7 +4,6 @@ output:
   html_document: default
 ---
 # Final Project Analysis
-## * Brandon Good * Duncan McKinnon * Kirk Reese *
 
 ## Loading Data
 
@@ -21,7 +20,7 @@ suppressPackageStartupMessages({
 
 ```{r, warning=FALSE, message=FALSE}
 # load data set
-cancer_data <- read_csv("C:/Users/dunca/OneDrive/Desktop/Course Work/Intro to Data Science/Data/FNA_cancer.csv")
+cancer_data <- read_csv("Data/FNA_cancer.csv")
 glimpse(cancer_data)
 ```
 

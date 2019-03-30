@@ -18,7 +18,7 @@ suppressPackageStartupMessages({
 })
 
 # load skulls data
-skulls <- read_csv("skulls.csv")
+skulls <- read_csv("../Data/skulls.csv")
 glimpse(skulls)
 ```
 

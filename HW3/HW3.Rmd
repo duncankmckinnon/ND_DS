@@ -171,7 +171,7 @@ ggplot(jason_3_days %>% mutate(drinks = ifelse(is.na(drinks), 'no answer', drink
 #load data from the police department in the city of Berkeley and covert character fields DOB and time of arrest to dates
 
 # load berkeley PD log arrest data, convert character fields into dates
-Berkeley_Arrests <- read_csv("Berkeley_PD_Log_-_Arrests.csv") %>% 
+Berkeley_Arrests <- read_csv("../Data/Berkeley_PD_Log_-_Arrests.csv") %>% 
   mutate(DOB = mdy(`Date of Birth`), 
          DT = mdy_hm(`Date and Time`, tz = 'America/Los_Angeles')) %>%
   select(-`Date of Birth`, -`Date and Time`)
