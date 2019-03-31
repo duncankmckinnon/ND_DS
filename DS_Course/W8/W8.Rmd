@@ -5,9 +5,9 @@ output:
 ---
 # Duncan McKinnon
 # West
+# W 8
 
-# HW 8
-
+## QA
 
 ```{r warning=FALSE, message=FALSE}
 # Load R Packages
@@ -18,8 +18,6 @@ suppressPackageStartupMessages({
   library(mosaic)
 })
 ```
-
-## QA
 
 ### 1,2,3).
 

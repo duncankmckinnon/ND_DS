@@ -5,7 +5,7 @@ output:
 ---
 # Duncan McKinnon
 # West
-# HW 2
+# W 2
 
 ## QA
 

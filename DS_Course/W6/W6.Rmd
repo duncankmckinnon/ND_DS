@@ -5,11 +5,12 @@ output:
 ---
 # Duncan McKinnon
 # West
-# HW 6
+# W 6
 
 ## QA
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+# load libraries
 suppressPackageStartupMessages( {
   library(tidyverse)
   library(NHANES)
@@ -21,14 +22,16 @@ suppressPackageStartupMessages( {
 ### 1).
 
 ```{r message=FALSE, warning=FALSE}
+# set random seed
 set.seed(1847)
 
+# set sample parameters
 n <- nrow(NHANES)
-train_pct <- 0.8
+p <- 0.2
 
 
 # get sample indices
-train_ind <- sample.int(n, n * train_pct, replace = F)
+train_ind <- sample.int(n, (1-p) * n, replace = F)
 
 # create train and test datasets
 train <- NHANES[train_ind, ]

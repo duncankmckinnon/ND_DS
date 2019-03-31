@@ -5,7 +5,9 @@ output:
 ---
 # Duncan McKinnon
 # West
-# HW 7
+# W 7
+
+## QA
 
 ```{r message=FALSE,warning=FALSE}
 # Load packages and data
@@ -18,9 +20,6 @@ suppressPackageStartupMessages({
 })
 
 ```
-
-
-## QA
 
 ### 1).
 
@@ -217,6 +216,7 @@ g1 <- cbind.data.frame(x1, x2, y)
 glimpse(g1)
 ```
 
+
 ```{r}
 # set random seed
 set.seed(1847)
@@ -228,6 +228,7 @@ y <- rep('no', 250)
 g2 <- cbind.data.frame(x1, x2, y)
 glimpse(g2)
 ```
+
 
 ```{r}
 # combine g1 and g2

@@ -5,7 +5,7 @@ output:
 ---
 # Duncan McKinnon
 # West
-# HW 10
+# W 10
 
 ## Load Packages and Data 
 

@@ -6,7 +6,7 @@ output:
 # Duncan McKinnon
 # West
 
-# HW 3
+# W 3
 
 ```{r warning=FALSE, message=FALSE}
 #load tidyverse and okaycupiddata

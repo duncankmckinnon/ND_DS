@@ -5,8 +5,9 @@ output:
 ---
 # Duncan McKinnon
 # West
-# HW 9
+# W 9
 
+## QA
 
 ```{r warning=FALSE, message=FALSE}
 # Read in packages and data

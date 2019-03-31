@@ -5,9 +5,9 @@ output:
 ---
 # Duncan McKinnon
 # West
-# HW 4
+# W 4
 
-## QA).
+## QA
 
 ```{r, warning=FALSE, message=FALSE}
 #load libraries
@@ -102,7 +102,7 @@ should be concerned that extremely high customer counts are hardly ever present 
 is the distinct possibility of having many more customers than expected during a single day, (especially if a promotion
 is successful).
 
-## QB).
+## QB
 
 ```{r, warning=FALSE, message=FALSE}
 L <- function(x) { return(( min( x ) + max( x ) ) / 2 ) }
@@ -124,6 +124,8 @@ for(i in 1 : length(shape)){
 
 stats
 ```
+
+
 ```{r, warning=FALSE, message=FALSE}
 # find the value of shape that corresponds to a gamma distribution where 
 # rgamma(n, shape, shape/60) -> P( x > 100 ) ~ 0.15
