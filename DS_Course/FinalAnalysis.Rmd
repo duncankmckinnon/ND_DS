@@ -20,7 +20,7 @@ suppressPackageStartupMessages({
 
 ```{r, warning=FALSE, message=FALSE}
 # load data set
-cancer_data <- read_csv("Data/FNA_cancer.csv")
+cancer_data <- read_csv("./Data/FNA_cancer.csv")
 glimpse(cancer_data)
 ```
 
@@ -238,6 +238,11 @@ rf_stats <- data.frame(accuracy = c(),
                        mtry = c(), 
                        ntree = c())
 
+f <- function(x){ 
+    i <- 1:6
+    return( i[mtries == x] )
+}
+
 for(i in mtries){
   for(j in ntrees){
     nm <- paste('mtry:', i, 'ntree:', j)
@@ -249,22 +254,33 @@ for(i in mtries){
     rf_models[[nm]] <- mod
     evalMod <- confusion_eval(mod = mod, test = test_rf, y = ytest_rf)
     rf_conf_matrices[[nm]] <- evalMod$confusion
-    rf_stats <- rbind(rf_stats, cbind(as.data.frame(evalMod$stat), data.frame(mtry = i, ntree = j)))
+    rf_stats <- rbind(rf_stats, cbind(as.data.frame(evalMod$stat), data.frame(mtry = i, ntree = j, n = f(i))))
   }
 }
 
+
 ggplot(rf_stats) +
-  geom_point(aes(x = mtry, y = accuracy, color = 'accuracy', alpha = 0.25)) + 
-  geom_point(aes(x = mtry, y = precision, color = 'precision', alpha = 0.25)) + 
-  geom_point(aes(x = mtry, y = sensitivity, color = 'sensitivity', alpha = 0.25)) + 
-  facet_wrap(~ntree) + 
+  geom_point(aes(x = n, y = accuracy, color = 'accuracy = (T / (T + F))', alpha = 0.25)) + 
+  geom_point(aes(x = n, y = precision, color = 'precision = (TP / (TP + FP))', alpha = 0.25)) + 
+  geom_point(aes(x = n, y = sensitivity, color = 'sensitivity = (TP / (TP + FN))', alpha = 0.25)) + 
+  geom_line(aes(x = n, y = accuracy, color = 'accuracy = (T / (T + F))', alpha = 0.25)) + 
+  geom_line(aes(x = n, y = precision, color = 'precision = (TP / (TP + FP))', alpha = 0.25)) + 
+  geom_line(aes(x = n, y = sensitivity, color = 'sensitivity = (TP / (TP + FN))', alpha = 0.25)) + 
+  facet_wrap(~ntree, 
+             labeller = labeller(ntree = c(
+               '10' = '10 trees',
+               '100' = '100 trees',
+               '300' = '300 trees',
+               '500' = '500 trees'
+             ))) + 
   labs(title = 'Model Performance by nTrees and mVariables',
-       x = 'Selection Size',
+       x = '# Variables for Each Decision Tree',
        y = 'Performance %',
        color = 'Performance Metric',
        alpha = NULL) +
-  scale_x_continuous(breaks = mtries, labels = mtries) + 
-  lims(y = c(.93,0.99)) +
+  scale_x_continuous(breaks = 1:6, labels = mtries) + 
+  scale_y_continuous(breaks = c(.93,.94,.95,.96,.97,.98,.99, 1), 
+                     labels = c(.93,.94,.95,.96,.97,.98,.99, 1)) +
   theme_bw()
 
 ```
@@ -344,12 +360,18 @@ knn_perf
 
 ```{r}
 # plot performance metrics over k
-ggplot(knn_perf, aes(x = c(1,2,3,4,5,6,7))) + 
-  geom_point(aes(y = acc, alpha = 0.25, color = 'accuracy')) + 
-  geom_point(aes(y = prec, alpha = 0.25, color = 'precision')) + 
-  geom_point(aes(y = sens, alpha = 0.25, color = 'sensitivity')) +
-  labs(title='Performance of KNN model for different values of k',
-       x = 'k', y = 'Performance %', color = 'Metric', alpha = NULL) +
+ggplot(knn_perf, aes(x = c(1,2,3,4,5,6,7), alpha = 0.25)) + 
+  geom_point(aes(y = acc, color = 'accuracy = (T / (T + F))')) + 
+  geom_point(aes(y = prec, color = 'precision = (TP / (TP + FP))')) + 
+  geom_point(aes(y = sens, color = 'sensitivity = (TP / (TP + FN))')) +
+  geom_line(aes(y = acc, color = 'accuracy = (T / (T + F))')) + 
+  geom_line(aes(y = prec, color = 'precision = (TP / (TP + FP))')) + 
+  geom_line(aes(y = sens, color = 'sensitivity = (TP / (TP + FN))')) +
+  labs(title='Performance of kNN model for different values of k',
+       x = '# Nearest Neighbors Assessed', 
+       y = 'Performance %', 
+       color = 'Metric', 
+       alpha = NULL) +
   ylim(0.6, 1) + 
   scale_x_continuous(breaks = c(1,2,3,4,5,6,7), labels = ks) +
   theme_bw()

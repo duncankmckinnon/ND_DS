@@ -1,0 +1,69 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+# Duncan McKinnon
+# West
+# W 11
+
+## Load Packages and Data 
+
+### 1).
+
+```{r, warning=FALSE, message=FALSE}
+# load tidyverse
+suppressPackageStartupMessages({
+  library(tidyverse)
+})
+
+# load skulls data
+skulls <- read_csv("../Data/skulls.csv")
+glimpse(skulls)
+```
+
+## Data Preprocessing
+
+### 2).
+
+```{r}
+# remove na's
+skulls <- skulls %>% na.omit()
+dim(skulls)
+```
+
+## PCA
+
+### 3).
+
+```{r}
+# run PCA with scaling
+pca <- skulls %>% prcomp(., scale=T)
+pca$rotation
+```
+
+### 4).
+
+```{r}
+# Plot the screeplot for the PCA data
+screeplot(pca, type='l')
+```
+
+### 5).
+
+From the scree-plot of the principal components of the skull dataset, it appears that most of the variance in the data is captured by the first 2 principal components.  In the plot there is a clear inflection point at the variance of the 3rd component, after which it appears that each subsequent component contains a similar proportion of the variance from the original dataset.  Because the last 10 components seem to each contain a similar proportion of the total variance in the data, there would be little reason to prefer any one of them or expect to significantly gain from including more principal components.
+
+### 6).
+
+```{r}
+# summary of PCA object
+summary(pca)
+```
+
+### 7).
+
+If a researcher wanted to use principal components that account for 95% of the variance in the original data they would want to select the first 8 principal components because these together contain just over 95% of the variance observed in the original dataset.  We can see this by looking at the cumulative proportion section of the pca summary, which shows the variance captured by selecting principal components 1:i where 1 <= i <= n.
+
+### 8).
+
+From the rotation matrix we can see that the 2nd principal component gives most significant weight to the max crainial width (XCB) and the max frontal breadth (XFB).  Since the weights are similar magnitude in the same direction, we can assume that there is a significant covariation in these predictors, and the 2nd principal component is capturing that common variance.
